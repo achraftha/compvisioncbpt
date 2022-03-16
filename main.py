@@ -10,9 +10,12 @@ def create_legend(img,pt1,pt2):
     cv2.putText(img,text1, pt1, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,0,0))
     text2 = "After resampling"
     cv2.putText(img,text2, pt2, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,255))
-    
+
+def centroidScore(x1, y1, x2, y2):
+    """Compare the history with another one"""
+    return ((x1-x2)**2 + (y1-y2)**2)**0.5
 def main():
-    image_name = "book"
+    image_name = "rhino"
     video  =read_video(image_name, r'C:\Users\achraf\Desktop\IMT Atlantique\3A\computer vision\sequences-train')
     first_frame = video[:,:,:,0]
     print(video.shape)
@@ -28,10 +31,10 @@ def main():
     sq_size = square_size(masks[:,:,:,0])
     print(sq_size)
     seg = first_frame[first_mask==0]=0
-    pf = ParticleFilter(x,y,first_frame, first_mask=first_mask,n_particles=500,square_size=sq_size,
+    pf = ParticleFilter(x,y,first_frame, first_mask=first_mask,n_particles=1000,square_size=sq_size,
     						dt=0.20)
     alpha = 0.5
-    index =-1
+    score = []
     for index in range(video.shape[3]-1):
     # while index < video.shape[3]:
         print(index)
@@ -46,6 +49,11 @@ def main():
         frame = cv2.blur(frame,(5,5))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         x,y,sq_size,distrib,distrib_control = pf.next_state(frame)
+        try:
+            xgt,ygt = gt_centroid(masks[:,:,:,index-1])
+            score.append(centroidScore(x, y, xgt, ygt))
+        except:
+            pass
         p1 = (int(y-sq_size),int(x-sq_size))
         p2 = (int(y+sq_size),int(x+sq_size))
         
@@ -69,10 +77,12 @@ def main():
         cv2.imshow('frame',img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break          
-        # sleep(5)
+        sleep(0.1)
 
     # cap.release()
     cv2.destroyAllWindows()
-
+    return score
 if __name__=="__main__":
-    main()
+    score = main()
+    plt.plot(score)
+    plt.show()

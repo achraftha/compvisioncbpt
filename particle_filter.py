@@ -29,14 +29,31 @@ def calc_hist(image, mask=None):
     # print(image.shape)
     if mask is None:
         mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-        hist = cv2.calcHist([image],[0],mask,[180],[0,180])
-        cv2.normalize(hist,hist,0,1,norm_type=cv2.NORM_MINMAX)
+        
+        Nh,Ns,Nv=180,255,255 
+        Nbins = Nh*Ns + Nv # Total number of bins
+        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        
+        # Normalize histograms
+        cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
+        cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
+            
+        # Concatenate both histograms (weighted)
+        hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
     else:
-        # mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-        print(mask.shape)
-        print(image.shape)
-        hist = cv2.calcHist([image],[0],mask,[180],[0,180])
-        cv2.normalize(hist,hist,0,1,norm_type=cv2.NORM_MINMAX)
+        Nh,Ns,Nv=180,255,255 
+        Nbins = Nh*Ns + Nv # Total number of bins
+        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        
+        # Normalize histograms
+        cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
+        cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
+            
+        # Concatenate both histograms (weighted)
+        hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
+
      
     return hist
 
@@ -82,13 +99,8 @@ def square_size(mask):
     x_list, y_list, _ = (mask == 255).nonzero()
     print(np.min(y_list), np.max(y_list))
     # sq_size = np.max(x_list)-np.min(x_list)
-    return np.max( np.array(np.max(x_list)-np.min(x_list),  np.max(y_list)-np.min(y_list)))
+    return np.max( np.array(np.max(x_list)-np.min(x_list),  np.max(y_list)-np.min(y_list)))/2
     # return sq_size
-
-# class ParticleFilter(object):
-#     def __init__(self, x, y, first_frame, first_mask, n_particles, dt = 0.04):
-#         self.n_particles = n_particles
-#         self.n_iter = 
 
 class ParticleFilter(object):
     def __init__(self,x,y,first_frame, first_mask,n_particles=1000,dt=0.04,square_size=20):
@@ -116,7 +128,8 @@ class ParticleFilter(object):
         self.particles = init_particles(self.state,n_particles)
         self.last_particles = np.array(self.particles)             
         self.hist = calc_hist(first_frame, first_mask)
-        hist
+        self.start_hist = self.hist
+        
         
      
     def next_state(self,frame):       
@@ -126,7 +139,7 @@ class ParticleFilter(object):
        
         hists = self.candidate_histograms(control_prediction,frame)
 
-        weights = self.compare_histograms(hists,self.hist)
+        weights = self.compare_histograms(hists,self.start_hist)
         self.last_particles = np.array(self.particles)
         self.particles = self.resample(control_prediction,weights)
         self.state = np.mean(self.particles,axis=0)
