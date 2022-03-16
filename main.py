@@ -14,25 +14,29 @@ def create_legend(img,pt1,pt2):
 def centroidScore(x1, y1, x2, y2):
     """Compare the history with another one"""
     return ((x1-x2)**2 + (y1-y2)**2)**0.5
+
 def main():
-    image_name = "rhino"
-    video  =read_video(image_name, r'C:\Users\achraf\Desktop\IMT Atlantique\3A\computer vision\sequences-train')
+    image_name = "bag"
+    video  =read_video(image_name, r'C:\Users\jerem\OneDrive\Documents\IMT\FISE_A3\UE_Computer_vision\Projet\sequences-train')
     first_frame = video[:,:,:,0]
     print(video.shape)
 
-    masks = read_masks(image_name, r'C:\Users\achraf\Desktop\IMT Atlantique\3A\computer vision\sequences-train')
+    masks = read_masks(image_name, r'C:\Users\jerem\OneDrive\Documents\IMT\FISE_A3\UE_Computer_vision\Projet\sequences-train')
     print("MAIN:",first_frame.shape)
     
     
     first_frame = cv2.cvtColor(first_frame.astype('uint8'), cv2.COLOR_BGR2HSV)
+
     first_mask = masks[:,:,0,0].astype('uint8')
     x,y = gt_centroid(masks[:,:,:,0])
 
+
     sq_size = square_size(masks[:,:,:,0])
-    print(sq_size)
+
     seg = first_frame[first_mask==0]=0
-    pf = ParticleFilter(x,y,first_frame, first_mask=first_mask,n_particles=1000,square_size=sq_size,
-    						dt=0.20)
+
+    pf = ParticleFilter(x,y,first_frame, first_mask=first_mask,n_particles=500,square_size=sq_size,
+    						dt=0.20, background=False)
     alpha = 0.5
     score = []
     for index in range(video.shape[3]-1):
@@ -51,9 +55,11 @@ def main():
         x,y,sq_size,distrib,distrib_control = pf.next_state(frame)
         try:
             xgt,ygt = gt_centroid(masks[:,:,:,index-1])
+
             score.append(centroidScore(x, y, xgt, ygt))
         except:
             pass
+
         p1 = (int(y-sq_size),int(x-sq_size))
         p2 = (int(y+sq_size),int(x+sq_size))
         

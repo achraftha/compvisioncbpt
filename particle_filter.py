@@ -17,7 +17,42 @@ def get_view(image,x,y,sq_size):
     view = image[int(x-sq_size/2):int(x+sq_size/2),
                  int(y-sq_size/2):int(y+sq_size/2),:]
     return view
+
+def calc_background_hist(image, mask):
+    """
+    Computes the color histogram of an image (or from a region of an image).
     
+    image: 3D Numpy array (X,Y,RGB)
+
+    return: One dimensional Numpy array
+    """
+
+    # Apply threshold creating to images
+    image_hs = np.array(image, np.uint16)
+    image_v = np.array(image, np.uint16)
+
+    thresh_sat=0.3
+    thresh_val=0.5
+    image_v[(image[:,:,1] > thresh_sat*180) & (image[:,:,2] > thresh_val*255), 0] = -1 # (not to be taken into account in the hist)
+    image_hs[image_v[:,:,0] != -1, 2] = -1 # same...
+    
+    inverse_mask = 1 - mask
+
+    Nh,Ns,Nv=180,255,255 
+    Nbins = Nh*Ns + Nv # Total number of bins
+    hist_hs = cv2.calcHist([image_hs], [0, 1], inverse_mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
+    hist_v = cv2.calcHist([image_v], [2], inverse_mask, [Nv], [0, 256]) # Value histogram
+    
+    # Normalize histograms
+    cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
+    cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
+        
+    # Concatenate both histograms (weighted)
+    hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
+
+     
+    return hist
+
 def calc_hist(image, mask=None):
     """
     Computes the color histogram of an image (or from a region of an image).
@@ -26,14 +61,26 @@ def calc_hist(image, mask=None):
 
     return: One dimensional Numpy array
     """
-    # print(image.shape)
+
+    # Apply threshold creating to images
+    image_hs = np.array(image, np.uint16)
+    image_v = np.array(image, np.uint16)
+
+    thresh_sat=0.1
+    thresh_val=0.3
+
+
+    image_v[(image[:,:,1] > thresh_sat*180) & (image[:,:,2] > thresh_val*255), 0] = -1 # (not to be taken into account in the hist)
+    image_hs[image_v[:,:,0] != -1, 2] = -1 # same...
+    
+
     if mask is None:
         mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
         
         Nh,Ns,Nv=180,255,255 
         Nbins = Nh*Ns + Nv # Total number of bins
-        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        hist_hs = cv2.calcHist([image_hs], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image_v], [2], mask, [Nv], [0, 256]) # Value histogram
         
         # Normalize histograms
         cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
@@ -44,8 +91,8 @@ def calc_hist(image, mask=None):
     else:
         Nh,Ns,Nv=180,255,255 
         Nbins = Nh*Ns + Nv # Total number of bins
-        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        hist_hs = cv2.calcHist([image_hs], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image_v], [2], mask, [Nv], [0, 256]) # Value histogram
         
         # Normalize histograms
         cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
@@ -57,7 +104,7 @@ def calc_hist(image, mask=None):
      
     return hist
 
-def comp_hist(hist1,hist2):
+def comp_hist(hist1,hist2,background_hist,background=False):
     """
     Compares two histograms together using the article's metric
 
@@ -65,7 +112,18 @@ def comp_hist(hist1,hist2):
     return: A number
     """
     lbd = 20
-    return np.exp(lbd*np.sum(hist1*hist2))
+    if background == False:
+        return np.exp(lbd*np.sum(hist1*hist2))
+
+    if background == True:
+
+        distance_back=abs(np.linalg.norm(background_hist-hist1))
+        if np.exp(lbd*np.sum(hist1*hist2)+distance_back)==0:
+            return np.exp(lbd*np.sum(hist1*hist2))
+        else:
+            return (np.exp(lbd*np.sum(hist1*hist2)+distance_back))
+
+
 
 def read_video(name,directory):
     path = directory+'/' +name 
@@ -103,7 +161,7 @@ def square_size(mask):
     # return sq_size
 
 class ParticleFilter(object):
-    def __init__(self,x,y,first_frame, first_mask,n_particles=1000,dt=0.04,square_size=20):
+    def __init__(self,x,y,first_frame, first_mask,n_particles=1000,dt=0.04,square_size=20,background=False):
         self.n_particles = n_particles
         self.n_iter = 0
         self.state = np.array([x,y,square_size]) 
@@ -126,7 +184,12 @@ class ParticleFilter(object):
 
 
         self.particles = init_particles(self.state,n_particles)
-        self.last_particles = np.array(self.particles)             
+        self.last_particles = np.array(self.particles) 
+
+        self.background=background
+        self.background_hist = calc_background_hist(first_frame, first_mask)
+
+
         self.hist = calc_hist(first_frame, first_mask)
         self.start_hist = self.hist
         
@@ -139,7 +202,7 @@ class ParticleFilter(object):
        
         hists = self.candidate_histograms(control_prediction,frame)
 
-        weights = self.compare_histograms(hists,self.start_hist)
+        weights = self.compare_histograms(hists,self.start_hist,self.background_hist,self.background)
         self.last_particles = np.array(self.particles)
         self.particles = self.resample(control_prediction,weights)
         self.state = np.mean(self.particles,axis=0)
@@ -161,6 +224,7 @@ class ParticleFilter(object):
         particles = np.dot(self.particles,self.A) + np.dot(self.last_particles,self.B) + noises
         return particles
 
+
     def candidate_histograms(self,predictions,image):
         "Compute histograms for all candidates"
         hists = [] 
@@ -170,9 +234,9 @@ class ParticleFilter(object):
             hists.append(calc_hist(v))
         return hists
         
-    def compare_histograms(self,hists,last_hist):
+    def compare_histograms(self,hists,last_hist,background_hist,background):
         "Compare histogram of current (last) histogram and all candidates"
-        weights = np.array(list(map(lambda x: comp_hist(x,last_hist),hists)))
+        weights = np.array(list(map(lambda x: comp_hist(x,last_hist,background_hist,background),hists)))
         return weights/np.sum(weights)
 
     def resample(self,predictions,weights):
@@ -180,6 +244,7 @@ class ParticleFilter(object):
         indexes = np.arange(weights.shape[0])
         inds = np.random.choice(indexes,self.n_particles,p=weights)
         return predictions[inds]
+
     def filter_borders(self,predictions):  
         "Remove candidates that will not have the correct square size."
         np.clip(predictions[:,0],self.state[2]+1,self.window_size[0]-(1+self.state[2]),predictions[:,0])        
