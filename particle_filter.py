@@ -18,7 +18,7 @@ def get_view(image,x,y,x_size, y_size):
                  int(y-y_size/2):int(y+y_size/2),:]
     return view
     
-def calc_hist(image, mask=None, histogram =["h"]):
+def calc_hist(image, mask=None,  bins=[15]):
     """
     Computes the color histogram of an image (or from a region of an image).
     
@@ -26,188 +26,33 @@ def calc_hist(image, mask=None, histogram =["h"]):
 
     return: One dimensional Numpy array
     """
-    Nh,Ns,Nv=180,255,255 
-    if len(histogram)==1:
-        if histogram[0]=="h":
-            Nbins = Nh
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                
-                hist = cv2.calcHist([image], [0], mask, [Nh], [0, 181]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else :
-                hist = cv2.calcHist([image], [0], mask, [Nh], [0, 181]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-        elif histogram[0]=="s":
-            Nbins = Ns
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                
-                hist = cv2.calcHist([image], [1], mask, [Ns], [0, 256]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else :
-                hist = cv2.calcHist([image], [1], mask, [Ns], [0, 256]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-        elif histogram[0]=="v":
-            Nbins = Nv
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                
-                hist = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else :
-                hist = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-    elif len(histogram)==1:
-        if histogram==["h","s"]:
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                Nbins = Nh*Ns
-                hist = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else:
-                Nbins = Nh*Ns
-                hist = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-        elif histogram==["h","v"]:
-            Nbins = Nh*Nv
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                hist = cv2.calcHist([image], [0, 2], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else:
-                hist = cv2.calcHist([image], [0, 2], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-        elif histogram==["s","v"]:
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                Nbins = Nh*Nv
-                hist = cv2.calcHist([image], [1, 2], mask, [Ns, Nv], [0, 256, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)
-                return hist
-            else:
-                Nbins = Nh*Nv
-                hist = cv2.calcHist([image], [1, 2], mask, [Ns, Nv], [0, 256, 0, 256]) # Hue/Saturation histogram
-                cv2.normalize(hist, hist, 0, 1, norm_type=cv2.NORM_MINMAX)   
-                return hist
-        elif histogram ==["hs","v"]:
-            Nbins = Nh*Ns + Nv # Total number of bins
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
-                return hist
-            else:
-                Nh,Ns,Nv=180,255,255 
-                Nbins = Nh*Ns + Nv # Total number of bins
-                hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))       
-                return hist
-        elif histogram ==["hv","s"]:
-            Nbins = Nh*Nv + Ns # Total number of bins
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                hist_hs = cv2.calcHist([image], [0, 2], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [1], mask, [Ns], [0, 256]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Nh*Nv/Nbins, hist_v.flatten()*Ns/Nbins))
-                return hist
-            else:
-                
-                hist_hs = cv2.calcHist([image], [0, 2], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [1], mask, [Ns], [0, 256]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Nh*Nv/Nbins, hist_v.flatten()*Ns/Nbins))
-                return hist
-        elif histogram ==["sv","h"]:
-            Nbins = Nh*Nv + Ns # Total number of bins
-            if mask is None:
-                mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
-                hist_hs = cv2.calcHist([image], [1, 2], mask, [Ns, Nv], [0, 256, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [0], mask, [Ns], [0, 181]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Ns*Nv/Nbins, hist_v.flatten()*Nh/Nbins))
-                return hist
-            else:
-                
-                hist_hs = cv2.calcHist([image], [1, 2], mask, [Ns, Nv], [0, 256, 0, 256]) # Hue/Saturation histogram
-                hist_v = cv2.calcHist([image], [0], mask, [Ns], [0, 181]) # Value histogram
-                
-                # Normalize histograms
-                cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
-                cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
-                    
-                # Concatenate both histograms (weighted)
-                hist = np.concatenate((hist_hs.flatten()*Ns*Nv/Nbins, hist_v.flatten()*Nh/Nbins))
-                return hist
-        
-           
+    Nh,Ns,Nv=bins 
+
     # print(image.shape)
     if mask is None:
         mask = cv2.inRange(image, np.array((0., 60.,32.)), np.array((180.,255.,255.)))
         
-        Nh,Ns,Nv=180,255,255 
-        Nbins = Nh*Ns + Nv # Total number of bins
-        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        Nbins = Nh*Nv + Ns # Total number of bins
+        hist_hs = cv2.calcHist([image], [0, 2], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image], [1], mask, [Ns], [0, 256]) # Value histogram
         
         # Normalize histograms
         cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
         cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
             
         # Concatenate both histograms (weighted)
-        hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
+        hist = np.concatenate((hist_hs.flatten()*Nh*Nv/Nbins, hist_v.flatten()*Ns/Nbins))
     else:
-        Nh,Ns,Nv=180,255,255 
         Nbins = Nh*Ns + Nv # Total number of bins
-        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Ns], [0, 181, 0, 256]) # Hue/Saturation histogram
-        hist_v = cv2.calcHist([image], [2], mask, [Nv], [0, 256]) # Value histogram
+        hist_hs = cv2.calcHist([image], [0, 1], mask, [Nh, Nv], [0, 181, 0, 256]) # Hue/Saturation histogram
+        hist_v = cv2.calcHist([image], [2], mask, [Ns], [0, 256]) # Value histogram
         
         # Normalize histograms
         cv2.normalize(hist_hs, hist_hs, 0, 1, norm_type=cv2.NORM_MINMAX)
         cv2.normalize(hist_v, hist_v, 0, 1, norm_type=cv2.NORM_MINMAX)
             
         # Concatenate both histograms (weighted)
-        hist = np.concatenate((hist_hs.flatten()*Nh*Ns/Nbins, hist_v.flatten()*Nv/Nbins))
+        hist = np.concatenate((hist_hs.flatten()*Nh*Nv/Nbins, hist_v.flatten()*Ns/Nbins))
 
      
     return hist
@@ -268,15 +113,14 @@ def get_size(mask):
         return max(x_edge, y_edge),max(x_edge, y_edge)
     
 class ParticleFilter(object):
-    def __init__(self,x,y,first_frame, first_mask,n_particles=1000,dt=0.04,sizes=(20,40), histogram=["h"]):
+    def __init__(self,x,y,first_frame, first_mask,n_particles=1000,dt=0.04,sizes=(20,40), bins = [15]):
         self.n_particles = n_particles
         self.n_iter = 0
         self.state = np.array([x,y,sizes[0], sizes[1]]) 
-        self.histogram = histogram
         # state =[X[t],Y[t],S[t],X[t-1],Y[t-1],S[t-1]]
         self.std_state = np.array([15,15,0,0])
         self.window_size = first_frame.shape
-        
+        self.bins = bins
         self.max_square = self.window_size[0]*0.5
         self.min_square = self.window_size[0]*0.1
 
@@ -294,7 +138,7 @@ class ParticleFilter(object):
 
         self.particles = init_particles(self.state,n_particles)
         self.last_particles = np.array(self.particles)             
-        self.hist = calc_hist(first_frame, first_mask, histogram)
+        self.hist = calc_hist(first_frame, first_mask, bins)
         self.start_hist = self.hist
         
         
@@ -313,7 +157,7 @@ class ParticleFilter(object):
       
         self.last_frame = np.array(frame)
         # self.n_iter += 1
-        self.hist = calc_hist(get_view(frame,self.state[0],self.state[1],self.state[2], self.state[3]), histogram = self.histogram)
+        self.hist = calc_hist(get_view(frame,self.state[0],self.state[1],self.state[2], self.state[3]), bins = self.bins)
         
 
         
@@ -333,7 +177,7 @@ class ParticleFilter(object):
 
         for x in predictions:
             v = get_view(image,x[0],x[1],x[2], x[3])
-            hists.append(calc_hist(v, histogram = self.histogram))
+            hists.append(calc_hist(v, bins=self.bins))
         return hists
         
     def compare_histograms(self,hists,last_hist):

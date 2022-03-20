@@ -14,7 +14,7 @@ def create_legend(img,pt1,pt2):
 def centroidScore(x1, y1, x2, y2):
     """Compare the history with another one"""
     return ((x1-x2)**2 + (y1-y2)**2)**0.5
-def main(histogram):
+def main(bins):
     image_name = "book"
     video  =read_video(image_name, r'C:\Users\achraf\Desktop\IMT Atlantique\3A\computer vision\sequences-train')
     first_frame = video[:,:,:,0]
@@ -30,7 +30,7 @@ def main(histogram):
     sizes = get_size(masks[:,:,:,0])
     seg = first_frame[first_mask==0]=0
     pf = ParticleFilter(x,y,first_frame, first_mask=first_mask,n_particles=50,sizes=sizes,
-    						dt=0.10, histogram=histogram)
+    						dt=0.10, bins =bins)
     alpha = 0.5
     score = []
     for index in range(video.shape[3]-1):
@@ -81,13 +81,18 @@ def main(histogram):
     cv2.destroyAllWindows()
     return score
 if __name__=="__main__":
-    scores =[]
-    tests = [["h"], ["s"],["v"], ["h","s"], ["h", "v"], ["s","v"], ["hs","v"], ["hv","s"], ["sv", "h"]]
-    tests = [["h"], ["s"],["v"]]
+    tests = [[360,500,500],[180,255,255], [90,120,120], [30,40,40], [15,20,20], [7,10,10], [3,5,5]]
+    # tests = [[360,500,500]]
+    scores = []
     for test in tests:
-        score=main(test)
-        scores.append(score)
+        for i in range(10):
+            score = main(test)
+            scores.append(score)
+        
+        score = np.mean(np.array(scores),axis =0)
         plt.plot(score)
-    # plt.plot(scores)
+        scores = []
+        
+        # plt.plot(score)
     plt.legend(tests)
     plt.show()
